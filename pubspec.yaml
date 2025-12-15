@@ -54,7 +54,7 @@ dev_dependencies:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/maxicon.png"
+  image_path: "assets/images/farmicon.jpg"
   remove_alpha_ios: true
 
 

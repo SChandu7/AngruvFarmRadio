@@ -129,8 +129,22 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _load() async {
+    final start = DateTime.now();
+
+    // Fetch data
     final songs = await ApiService.fetchSongs();
-    allSongs = songs; // 🔴 IMPORTANT
+    allSongs = songs;
+
+    // Ensure splash is visible at least 2 seconds
+    final elapsed = DateTime.now().difference(start);
+    const minDuration = Duration(seconds: 3);
+
+    if (elapsed < minDuration) {
+      await Future.delayed(minDuration - elapsed);
+    }
+
+    if (!mounted) return;
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => MainShell(songs: songs)),
@@ -179,7 +193,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
 
-                SizedBox(height: 50),
+                SizedBox(height: 30),
 
                 /// --- Logo ---
                 Image.asset(
@@ -231,7 +245,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        "Dr. A. Appalaswamy\nAssociate Director of Research, High Altitude...",
+                        "Dr. K. Tejaswara Rao\nPrincipal Scientist, (Agronomy)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -240,7 +254,25 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        "Dr. G. Sivanarayana\nDirector of Extension, ANGRAU",
+                        "Dr. S. Srinivas Raju \nSMS Horticulture",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        "Dr. K.DhanaSree \nAssistant Professor (Extension Education)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        "Dr. G. SivaNarayana \nDirector Of Extension, Angruv",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -250,12 +282,61 @@ class _SplashScreenState extends State<SplashScreen> {
                     ],
                   ),
                 ),
-
-                SizedBox(height: 50),
+                //    const SizedBox(height: 24),
+                const DotLoader(
+                  fontSize: 36, // 👈 BIGGER DOTS
+                  color: Colors.green,
+                ),
+                SizedBox(height: 20),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class DotLoader extends StatefulWidget {
+  final double fontSize;
+  final Color color;
+
+  const DotLoader({super.key, this.fontSize = 28, this.color = Colors.green});
+
+  @override
+  State<DotLoader> createState() => _DotLoaderState();
+}
+
+class _DotLoaderState extends State<DotLoader> {
+  int _dotCount = 1;
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 450), (_) {
+      setState(() {
+        _dotCount++;
+        if (_dotCount > 5) _dotCount = 1;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '.' * _dotCount,
+      style: TextStyle(
+        fontSize: widget.fontSize,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 6,
+        color: widget.color,
       ),
     );
   }
@@ -350,7 +431,7 @@ class HomePage extends StatelessWidget {
 
           actions: [
             IconButton(
-              icon: const Icon(Icons.admin_panel_settings_outlined),
+              icon: const Icon(Icons.more_vert),
               color: Colors.white,
               tooltip: "Admin Panel",
               onPressed: () {
@@ -511,7 +592,7 @@ class HomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Songs",
+                    song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -552,18 +633,6 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _categoryChip(String label) {
-    return Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.orange.shade100,
-      ),
-      child: Center(child: Text(label)),
     );
   }
 }
@@ -677,12 +746,14 @@ class _PlayerPageState extends State<PlayerPage> {
               Row(
                 children: [
                   IconButton(
+                    iconSize: 36, // 👈 increase size (try 32–40)
                     icon: const Icon(
                       Icons.keyboard_arrow_down,
                       color: Colors.white,
                     ),
                     onPressed: widget.onClose, // ✅ CORRECT EXIT
                   ),
+
                   const Spacer(),
                   const Icon(Icons.more_vert, color: Colors.white),
                   const SizedBox(width: 12),
@@ -706,7 +777,7 @@ class _PlayerPageState extends State<PlayerPage> {
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                   child: Image.asset(
                     "assets/images/soil.jpg",
                     fit: BoxFit.cover,
@@ -721,7 +792,7 @@ class _PlayerPageState extends State<PlayerPage> {
                 currentSong.title,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 19,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -781,20 +852,21 @@ class _PlayerPageState extends State<PlayerPage> {
                 },
               ),
 
-              const Spacer(),
+              //  const Spacer(),
+              const SizedBox(height: 16),
 
               // CONTROLS
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    iconSize: 34,
+                    iconSize: 44,
                     color: Colors.white,
                     icon: const Icon(Icons.skip_previous),
                     onPressed: _previousSong,
                   ),
                   IconButton(
-                    iconSize: 30,
+                    iconSize: 40,
                     color: Colors.white,
                     icon: const Icon(Icons.replay_10),
                     onPressed: () => _seekBy(const Duration(seconds: -10)),
@@ -823,13 +895,13 @@ class _PlayerPageState extends State<PlayerPage> {
                     ),
                   ),
                   IconButton(
-                    iconSize: 30,
+                    iconSize: 40,
                     color: Colors.white,
                     icon: const Icon(Icons.forward_10),
                     onPressed: () => _seekBy(const Duration(seconds: 10)),
                   ),
                   IconButton(
-                    iconSize: 34,
+                    iconSize: 44,
                     color: Colors.white,
                     icon: const Icon(Icons.skip_next),
                     onPressed: _nextSong,
@@ -837,7 +909,31 @@ class _PlayerPageState extends State<PlayerPage> {
                 ],
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 30),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: widget.onClose,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white10,
+                          foregroundColor: Colors.white,
+                          elevation: 6,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text("Back"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // const SizedBox(height: 10),
             ],
           ),
         ),
@@ -1191,26 +1287,28 @@ class _AutoCarouselState extends State<AutoCarousel> {
                     ),
 
                     // ===== TEXT =====
-                    Padding(
-                      padding: const EdgeInsets.all(16),
+                    // ===== SONG TITLE (MOVED UP) =====
+                    Positioned(
+                      left: 16,
+                      right: 54, // keeps distance from play button
+                      bottom: 10, // 🔥 MOVE TEXT UP
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Songs",
-                            maxLines: 2,
+                            song.title,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
+                          const SizedBox(height: 4),
+                          const Text(
                             "Songs",
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
                             ),
@@ -1250,13 +1348,108 @@ class _AutoCarouselState extends State<AutoCarousel> {
 
 class AdminPanel extends StatelessWidget {
   final List<Song> songs;
-  const AdminPanel({required this.songs});
+  const AdminPanel({super.key, required this.songs});
 
   Future<void> uploadSong(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(type: FileType.audio);
     if (result == null) return;
 
+    // 🔥 SHOW LOADING
+    showLoadingDialog(context, "Uploading audio file");
+
     await ApiService.uploadSong(result.files.single.path!);
+    final updated = await ApiService.fetchSongs();
+    allSongs = updated;
+
+    // 🔥 CLOSE LOADING
+    Navigator.pop(context);
+
+    // ✅ SHOW SUCCESS
+    await showSuccessDialog(context, "Audio uploaded successfully");
+
+    // 🔁 REFRESH ADMIN PANEL
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => MainShell(songs: updated)),
+    );
+  }
+
+  void showLoadingDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // ⛔ user cannot close
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            const DotLoader(fontSize: 28, color: Colors.green),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> showSuccessDialog(BuildContext context, String message) {
+    return showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, Song song) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Delete Song"),
+        content: Text(
+          "Are you sure you want to delete:\n\n${song.title}",
+          style: const TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text("Delete"),
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ApiService.deleteSong(song.id);
     final updated = await ApiService.fetchSongs();
     allSongs = updated;
 
@@ -1269,31 +1462,96 @@ class AdminPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => uploadSong(context),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: const Text("Admin Panel"),
+        centerTitle: true,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.green, Colors.teal],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
-      body: ListView.builder(
-        itemCount: songs.length,
-        itemBuilder: (_, i) {
-          return ListTile(
-            title: Text(songs[i].title),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () async {
-                await ApiService.deleteSong(songs[i].id);
-                final updated = await ApiService.fetchSongs();
-                allSongs = updated;
 
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => MainShell(songs: updated)),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => uploadSong(context),
+        icon: const Icon(Icons.upload),
+        label: const Text("Upload Audio"),
+        backgroundColor: Colors.green,
+      ),
+
+      body: songs.isEmpty
+          ? const Center(
+              child: Text(
+                "No songs uploaded yet",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: songs.length,
+              itemBuilder: (context, i) {
+                final song = songs[i];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE8F5E9), Color(0xFFFFFFFF)],
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+
+                    leading: Container(
+                      height: 48,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Colors.green, Colors.lightGreen],
+                        ),
+                      ),
+                      child: const Icon(Icons.music_note, color: Colors.white),
+                    ),
+
+                    title: Text(
+                      song.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    subtitle: const Text(
+                      "Uploaded audio file",
+                      style: TextStyle(fontSize: 13),
+                    ),
+
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      color: Colors.red,
+                      onPressed: () => _confirmDelete(context, song),
+                    ),
+                  ),
                 );
               },
             ),
-          );
-        },
-      ),
     );
   }
 }
