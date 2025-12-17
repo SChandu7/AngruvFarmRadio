@@ -1,10 +1,13 @@
 import 'dart:async';
-
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:animate_do/animate_do.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const FarmRadioApp());
@@ -58,60 +61,95 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int index = 0; // 0 = Home, 1 = Player, 2 = Admin
   int currentSongIndex = 0;
+  DateTime? _lastBackPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: [
-        // ================= HOME =================
-        HomePage(
-          songs: widget.songs,
-          onPlay: (song) {
-            final i = widget.songs.indexOf(song);
-            if (i == -1) return;
+    return WillPopScope(
+      onWillPop: () async {
+        // If PlayerPage is open → go back to Home
+        if (index == 1) {
+          setState(() => index = 0);
+          return false;
+        }
 
-            setState(() {
-              currentSongIndex = i;
-              index = 1; // 🔥 Open PlayerPage
-            });
-          },
-        ),
+        final now = DateTime.now();
+        if (_lastBackPressed == null ||
+            now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
+          _lastBackPressed = now;
 
-        // ================= PLAYER (FULL SCREEN) =================
-        PlayerPage(
-          songs: widget.songs,
-          currentIndex: currentSongIndex,
-          onIndexChanged: (i) {
-            setState(() => currentSongIndex = i);
-          },
-          onClose: () {
-            setState(() => index = 0); // 🔥 Back to Home
-          },
-        ),
-
-        // ================= ADMIN =================
-        AdminPanel(songs: widget.songs),
-      ][index],
-
-      // ================= BOTTOM NAV =================
-      // 🔥 Hidden ONLY when PlayerPage is active
-      bottomNavigationBar: index == 1
-          ? null
-          : BottomNavigationBar(
-              currentIndex: index,
-              onTap: (i) => setState(() => index = i),
-              items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.play_circle),
-                  label: "Player",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.admin_panel_settings),
-                  label: "Admin",
-                ),
-              ],
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Tap again to exit"),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
             ),
+          );
+          return false;
+        }
+
+        return true; // exit app
+      },
+      child: Scaffold(
+        body: [
+          HomePage(
+            songs: widget.songs,
+            onPlay: (song) {
+              final i = widget.songs.indexOf(song);
+              if (i == -1) return;
+
+              setState(() {
+                currentSongIndex = i;
+                index = 1;
+              });
+            },
+          ),
+          PlayerPage(
+            songs: widget.songs,
+            currentIndex: currentSongIndex,
+            onIndexChanged: (i) {
+              setState(() => currentSongIndex = i);
+            },
+            onClose: () {
+              setState(() => index = 0);
+            },
+          ),
+          FutureBuilder<bool>(
+            future: AuthPrefs.isLoggedIn(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasData && snapshot.data == true) {
+                return AdminPanel(songs: widget.songs);
+              }
+              return LoginPage(songs: widget.songs);
+            },
+          ),
+        ][index],
+
+        bottomNavigationBar: index == 1
+            ? null
+            : BottomNavigationBar(
+                currentIndex: index,
+                onTap: (i) => setState(() => index = i),
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: "Home",
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.play_circle),
+                    label: "Player",
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.admin_panel_settings),
+                    label: "Admin",
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -417,7 +455,7 @@ class HomePage extends StatelessWidget {
               // App title
               Center(
                 child: const Text(
-                  "Angruv Farm Radio",
+                  "Angrau Farm Radio",
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -431,17 +469,62 @@ class HomePage extends StatelessWidget {
 
           actions: [
             IconButton(
-              icon: const Icon(Icons.more_vert),
-              color: Colors.white,
-              tooltip: "Admin Panel",
+              icon: const Icon(Icons.more_vert), // Right-side menu icon
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => AdminPanel(songs: songs)),
-                );
+                showMenu<int>(
+                  context: context,
+                  position: const RelativeRect.fromLTRB(
+                    100,
+                    80,
+                    0,
+                    0,
+                  ), // Adjust position
+                  items: [
+                    const PopupMenuItem(value: 1, child: Text("Log-in")),
+                    const PopupMenuItem(value: 2, child: Text("Log-out")),
+                    const PopupMenuItem(value: 3, child: Text("Help")),
+                  ],
+                ).then((value) async {
+                  // Handle the selected option
+                  if (value == 1) {
+                    // Action for Option 1
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginPage(songs: songs),
+                      ),
+                    );
+                  } else if (value == 2) {
+                    if (await AuthPrefs.isLoggedIn()) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Logged Out Successfully."),
+                        ),
+                      );
+                      await AuthPrefs.logout();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LoginPage(songs: allSongs),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Login First....")),
+                      );
+                      return;
+                    }
+                  } else if (value == 3) {
+                    // Action for Option 2
+                    print("Option 3 selected");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Option 3 selected")),
+                    );
+                  }
+                });
               },
             ),
-            const SizedBox(width: 8),
           ],
         ),
       ),
@@ -659,6 +742,15 @@ class _PlayerPageState extends State<PlayerPage> {
   final AudioPlayer _player = AudioPlayer();
 
   Song get currentSong => widget.songs[widget.currentIndex];
+  String get _currentImage =>
+      _playerImages[widget.currentIndex % _playerImages.length];
+
+  final List<String> _playerImages = [
+    "assets/images/farm1.PNG",
+    "assets/images/farm2.PNG",
+    "assets/images/farm3.png",
+    "assets/images/farm4.PNG",
+  ];
 
   @override
   void initState() {
@@ -778,10 +870,7 @@ class _PlayerPageState extends State<PlayerPage> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.asset(
-                    "assets/images/soil.jpg",
-                    fit: BoxFit.cover,
-                  ),
+                  child: Image.asset(_currentImage, fit: BoxFit.cover),
                 ),
               ),
 
@@ -1212,6 +1301,12 @@ class _AutoCarouselState extends State<AutoCarousel> {
   late final PageController _controller;
   int _currentIndex = 0;
   Timer? _timer;
+  final List<String> _carouselImages = [
+    "assets/images/farm1.PNG",
+    "assets/images/farm2.PNG",
+    "assets/images/farm3.png",
+    "assets/images/farm4.PNG",
+  ];
 
   @override
   void initState() {
@@ -1260,8 +1355,9 @@ class _AutoCarouselState extends State<AutoCarousel> {
                   borderRadius: BorderRadius.circular(12),
                   image: DecorationImage(
                     image: AssetImage(
-                      "assets/images/soil.jpg",
-                    ), // 🔥 image fixed to card
+                      _carouselImages[i % _carouselImages.length],
+                    ),
+                    // 🔥 image fixed to card
                     fit: BoxFit.cover,
                   ),
                   boxShadow: const [
@@ -1277,12 +1373,21 @@ class _AutoCarouselState extends State<AutoCarousel> {
                     // ===== DARK OVERLAY FOR TEXT READABILITY =====
                     Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: const LinearGradient(
-                          colors: [Colors.transparent, Colors.black87],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+                        borderRadius: BorderRadius.circular(12),
+                        image: DecorationImage(
+                          image: AssetImage(
+                            _carouselImages[i %
+                                _carouselImages.length], // 🔥 4 images cycling
+                          ),
+                          fit: BoxFit.cover,
                         ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 10,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
                       ),
                     ),
 
@@ -1351,7 +1456,7 @@ class AdminPanel extends StatelessWidget {
   const AdminPanel({super.key, required this.songs});
 
   Future<void> uploadSong(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+    final result = await FilePicker.platform.pickFiles();
     if (result == null) return;
 
     // 🔥 SHOW LOADING
@@ -1553,5 +1658,316 @@ class AdminPanel extends StatelessWidget {
               },
             ),
     );
+  }
+}
+
+class LoginPage extends StatefulWidget {
+  final List<Song> songs;
+
+  const LoginPage({super.key, required this.songs});
+
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _GetUsername = TextEditingController();
+  final TextEditingController _GetUserPassword = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  String? _errorMessage;
+  String? fcmToken;
+  bool eye = true;
+  String selectedRole = "default"; // Default role
+  String PresentUser = "default";
+
+  // Default credentials for temporary login
+  final String _defaultUsername = "admin";
+  final String _defaultPassword = "admin123";
+
+  String error = '';
+  bool isLoading = false;
+
+  List<Song>? get songs => null;
+
+  Future<String?> fetchUserProfileImageUrl(String username) async {
+    const imageBaseUrl = 'https://djangotestcase.s3.ap-south-1.amazonaws.com/';
+
+    // Try extensions in order
+    final extensions = ['jpg', 'jpeg', 'png'];
+
+    for (String ext in extensions) {
+      final imageUrl = '$imageBaseUrl${username}profile.$ext';
+      try {
+        final response = await http.get(Uri.parse(imageUrl));
+        if (response.statusCode == 200) {
+          return imageUrl;
+        }
+      } catch (_) {
+        // Continue checking other extensions
+      }
+    }
+    return null; // No valid image found
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final height = size.height;
+    final width = size.width;
+    final isSmall = height < 700;
+
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      body: KeyboardVisibilityBuilder(
+        builder: (context, isKeyboardVisible) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                // ================= TOP GRADIENT =================
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.only(
+                    top: height * 0.08,
+                    bottom: height * 0.06,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(45),
+                      bottomRight: Radius.circular(45),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      colors: [
+                        Colors.orange.shade900,
+                        Colors.orange.shade800,
+                        Colors.orange.shade400,
+                      ],
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: width * 0.05),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FadeInUp(
+                          duration: const Duration(milliseconds: 800),
+                          child: Text(
+                            "Login",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: width * 0.1,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FadeInUp(
+                          duration: const Duration(milliseconds: 1100),
+                          child: Text(
+                            "Welcome Back",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: width * 0.045,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ================= FORM SECTION =================
+                Padding(
+                  padding: EdgeInsets.all(width * 0.07),
+                  child: Column(
+                    children: [
+                      SizedBox(height: isSmall ? 20 : 40),
+                      const SizedBox(height: 18),
+
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 1200),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color.fromRGBO(225, 95, 27, .3),
+                                blurRadius: 20,
+                                offset: Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // USERNAME
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: TextFormField(
+                                  controller: _GetUsername,
+                                  decoration: const InputDecoration(
+                                    hintText: "Username eg..test",
+                                    border: InputBorder.none,
+                                    prefixIcon: Icon(
+                                      Icons.verified_user,
+                                      color: Colors.orangeAccent,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Divider(height: 1),
+                              // PASSWORD
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: TextFormField(
+                                  controller: _GetUserPassword,
+                                  obscureText: eye,
+                                  decoration: InputDecoration(
+                                    hintText: "Password eg..test123",
+                                    border: InputBorder.none,
+                                    prefixIcon: const Icon(
+                                      Icons.lock,
+                                      color: Colors.orangeAccent,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        eye
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.lightBlue,
+                                      ),
+                                      onPressed: () {
+                                        setState(() => eye = !eye);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: isSmall ? 24 : 40),
+                      const SizedBox(height: 18),
+
+                      // LOGIN BUTTON
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 1400),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: MaterialButton(
+                            color: Colors.orange[900],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(50),
+                            ),
+                            onPressed: () async {
+                              if (_GetUsername.text == "Pradeep" &&
+                                  _GetUserPassword.text == "Pradeep@123") {
+                                // ✅ STORE LOGIN STATE
+                                await AuthPrefs.setLoggedIn(true);
+
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        MainShell(songs: widget.songs),
+                                  ),
+                                );
+                              } else {
+                                setState(() {
+                                  _errorMessage =
+                                      "Invalid username or password.";
+                                });
+                              }
+                            },
+
+                            child: const Text(
+                              "Login",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 1500),
+                        child: const Text(
+                          "Forgot Password?",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+
+                      SizedBox(height: isKeyboardVisible ? 20 : 40),
+
+                      // SOCIAL BUTTONS
+                      Row(
+                        children: [
+                          Expanded(
+                            child: MaterialButton(
+                              height: 48,
+                              color: Colors.blue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              onPressed: () {},
+                              child: const Text(
+                                "Facebook",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: MaterialButton(
+                              height: 48,
+                              color: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              onPressed: () {},
+                              child: const Text(
+                                "Google",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class AuthPrefs {
+  static const String _keyLoggedIn = "is_logged_in";
+
+  static Future<void> setLoggedIn(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyLoggedIn, value);
+  }
+
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyLoggedIn) ?? false;
+  }
+
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyLoggedIn, false);
   }
 }
