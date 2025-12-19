@@ -274,7 +274,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   child: Column(
                     children: [
                       Text(
-                        "Dr. P.B. Pradeep Kumar\nCoordinator & Scientist (T.O.T) DAATTC, PADERU, A.S.R. District.A.P.",
+                        "Dr. P.B. Pradeep Kumar\nCoordinator & Senior Scientist (T.O.T) DAATTC, PADERU, A.S.R. District.A.P.",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -292,7 +292,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        "Dr. S. Srinivas Raju \nSMS Horticulture",
+                        "Dr. S. Srinivasa Raju \n(SMS Horticulture)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -301,7 +301,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        "Dr. K.DhanaSree \nAssistant Professor (Extension Education)",
+                        "Dr. K.DhanaSree \Associate Professor (Extension Education)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -310,7 +310,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        "Dr. G. SivaNarayana \nDirector Of Extension, Angruv",
+                        "Dr. G. SivaNarayana \nDirector Of Extension, ANGRAU",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -455,10 +455,10 @@ class HomePage extends StatelessWidget {
               // App title
               Center(
                 child: const Text(
-                  "Angrau Farm Radio",
+                  "ANGRAU FARM ADVISORY",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.4,
                   ),
@@ -626,6 +626,10 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  String getCleanSongTitle(String title) {
+    return title.replaceAll(RegExp(r'\.[^\.]+$'), '');
+  }
+
   // ================= SONG CARD =================
   Widget _songRectCard(Song song, Function(Song) onSelect) {
     return Padding(
@@ -675,7 +679,7 @@ class HomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    song.title,
+                    getCleanSongTitle(song.title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -684,10 +688,6 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    "${"Songs"} • ${"Songs"}",
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
                 ],
               ),
             ),
