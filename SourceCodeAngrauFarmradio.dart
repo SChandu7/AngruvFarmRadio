@@ -7,8 +7,6 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const FarmRadioApp());
@@ -164,49 +162,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    trackAppVisit();
     _load();
-  }
-
-  final String _appName = "Angrau FarmRadio"; // ✅ change this per app
-  // "chandus7" / "app3" / "app4" etc.
-
-  Future<void> trackAppVisit() async {
-    try {
-      print("..............-----------------------------------------000");
-      await http.post(
-        Uri.parse("https://api.chandus7.in/api/track-visit/"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"app_name": _appName}),
-      );
-    } catch (e) {
-      print("Visit tracking failed: $e");
-    }
   }
 
   Future<void> _load() async {
     final start = DateTime.now();
-    List<Song> songs = [];
 
-    try {
-      // 🔹 TRY ONLINE
-      songs = await ApiService.fetchSongs();
-      allSongs = songs;
+    // Fetch data
+    final songs = await ApiService.fetchSongs();
+    allSongs = songs;
 
-      // 🔹 DOWNLOAD FOR OFFLINE (ONLY IF ONLINE WORKED)
-      for (final song in songs) {
-        await AudioCacheService.downloadIfNeeded(song.fileUrl);
-      }
-    } catch (e) {
-      // 🔸 OFFLINE MODE
-      // Try to recover songs from local cache
-      songs = await _loadSongsFromLocal();
-      allSongs = songs;
-    }
-
-    // Ensure splash duration
-    const minDuration = Duration(seconds: 8);
+    // Ensure splash is visible at least 2 seconds
     final elapsed = DateTime.now().difference(start);
+    const minDuration = Duration(seconds: 3);
+
     if (elapsed < minDuration) {
       await Future.delayed(minDuration - elapsed);
     }
@@ -217,23 +186,6 @@ class _SplashScreenState extends State<SplashScreen> {
       context,
       MaterialPageRoute(builder: (_) => MainShell(songs: songs)),
     );
-  }
-
-  Future<List<Song>> _loadSongsFromLocal() async {
-    final dir = await AudioCacheService._audioDir();
-    final files = dir.listSync();
-
-    int id = 0;
-
-    return files.whereType<File>().map((file) {
-      final fileName = file.path.split('/').last;
-
-      return Song(
-        id: id++,
-        title: fileName, // will be cleaned in UI
-        fileUrl: file.path, // LOCAL PATH
-      );
-    }).toList();
   }
 
   @override
@@ -818,18 +770,7 @@ class _PlayerPageState extends State<PlayerPage> {
   Future<void> _playCurrent() async {
     try {
       await _player.stop();
-
-      if (currentSong.fileUrl.startsWith('/')) {
-        // 🔥 LOCAL FILE
-        await _player.setFilePath(currentSong.fileUrl);
-      } else {
-        // 🔥 ONLINE (WITH CACHE)
-        final localPath = await AudioCacheService.downloadIfNeeded(
-          currentSong.fileUrl,
-        );
-        await _player.setFilePath(localPath);
-      }
-
+      await _player.setUrl(currentSong.fileUrl);
       await _player.play();
     } catch (e) {
       debugPrint("Audio error: $e");
@@ -2027,45 +1968,5 @@ class AuthPrefs {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyLoggedIn, false);
-  }
-}
-
-class AudioCacheService {
-  /// Get app audio directory
-  static Future<Directory> _audioDir() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final audioDir = Directory('${dir.path}/audios');
-
-    if (!audioDir.existsSync()) {
-      audioDir.createSync(recursive: true);
-    }
-    return audioDir;
-  }
-
-  /// Get local path for a song
-  static Future<String> getLocalPath(String fileUrl) async {
-    final fileName = fileUrl.split('/').last;
-    final dir = await _audioDir();
-    return '${dir.path}/$fileName';
-  }
-
-  /// Check if audio already exists
-  static Future<bool> exists(String fileUrl) async {
-    final path = await getLocalPath(fileUrl);
-    return File(path).existsSync();
-  }
-
-  /// Download audio if not exists
-  static Future<String> downloadIfNeeded(String fileUrl) async {
-    final path = await getLocalPath(fileUrl);
-    final file = File(path);
-
-    if (file.existsSync()) {
-      return path;
-    }
-
-    final response = await http.get(Uri.parse(fileUrl));
-    await file.writeAsBytes(response.bodyBytes);
-    return path;
   }
 }
