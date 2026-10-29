@@ -1,0 +1,75 @@
+# Codemagic CI: builds the ANGRAU Farm Radio iPhone app and uploads it to
+# App Store Connect (TestFlight). Same setup as ANGRAU DAATTC, InfuMedz and
+# Inforedz; Android is still built and released locally.
+#
+# One-time setup in the Codemagic web UI:
+#   - Team -> Integrations -> Developer Portal: the App Store Connect API key,
+#     saved under the name used in `integrations` below (shared with InfuMedz).
+#   - Team -> codemagic.yaml settings -> Code signing identities: the Apple
+#     Distribution certificate (shared) and the App Store provisioning profile
+#     for com.farmradio.app (fetch it there).
+#
+# Start a build from the Codemagic dashboard: Start new build -> branch
+# master -> workflow "ANGRAU Farm Radio iOS release".
+
+workflows:
+  farmradio-ios-release:
+    name: ANGRAU Farm Radio iOS release
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    integrations:
+      app_store_connect: InfuMedz App Store Connect
+
+    environment:
+      flutter: 3.47.7
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.farmradio.app
+
+    scripts:
+      - name: Apply the code signing profile to the Xcode project
+        script: xcode-project use-profiles
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install CocoaPods
+        script: cd ios && pod install --repo-update
+
+      - name: Analyze and test
+        script: |
+          flutter analyze --no-fatal-infos
+          flutter test
+
+      - name: Build the IPA
+        script: |
+          # iOS build numbers only have to go up. A UTC timestamp (yyMMddHHmm)
+          # is higher than every earlier upload and different on every run,
+          # so an upload can never clash. The version name (2.0.0) comes from
+          # pubspec.yaml.
+          BUILD=$(date -u +%y%m%d%H%M)
+          echo "Commit $CM_COMMIT -> iOS build number $BUILD"
+          flutter build ipa --release \
+            --build-number=$BUILD \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      email:
+        recipients:
+          - chandrasekharsuragani532@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # Uploads to TestFlight. Submitting for App Review is done in
+        # App Store Connect.
+        submit_to_testflight: false

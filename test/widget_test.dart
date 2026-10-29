@@ -1,30 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:farmradio/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:farmradio/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('broadcast titles drop the file extension and underscores', () {
+    const s = Song(id: 1, title: 'Angrau_Audio1.mpeg', fileUrl: 'https://x/a.mp3');
+    expect(s.displayTitle, 'Angrau Audio1');
+    const t = Song(id: 2, title: 'Paddy advisory', fileUrl: 'https://x/b.mp3');
+    expect(t.displayTitle, 'Paddy advisory');
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  test('song JSON round trip', () {
+    final s = Song.fromJson({'id': 3, 'title': 'A', 'file_url': 'https://x/c.m4a', 'order': 2});
+    expect(Song.fromJson(s.toJson()).toJson(), s.toJson());
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('help page lists how to use the app', (tester) async {
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.theme, home: const HelpPage()));
+    expect(find.text('Listen without internet'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('Helpline'), 200);
+    expect(find.textContaining('Helpline'), findsOneWidget);
   });
 }
